@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 const OPENROUTER_CHAT_COMPLETIONS_URL =
   "https://openrouter.ai/api/v1/chat/completions";
-const DEFAULT_MODEL = "qwen/qwen-2.5-coder-32b-instruct:free";
+const DEFAULT_MODEL = "cohere/north-mini-code:free";
 
 const SYSTEM_PROMPT = `You are Referee, an expert AI code refactoring assistant.
 

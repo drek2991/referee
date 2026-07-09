@@ -40,34 +40,280 @@ const starterCode = `function getActiveUsers(users) {
 const starterOutput = `const getActiveUsers = (users) =>
   users.filter((user) => user.active);`;
 
+const starterExplanation =
+  "- Replaced imperative looping with a declarative filter call.\n- Removed unnecessary boolean comparison.\n- Preserved the original behavior while making the intent easier to scan.";
+
+type StreamDelta = {
+  choices?: Array<{
+    delta?: {
+      content?: unknown;
+    };
+  }>;
+};
+
+function splitRefactorResponse(content: string) {
+  const openingFenceIndex = content.indexOf("```");
+
+  if (openingFenceIndex === -1) {
+    return {
+      explanation: content.trimStart(),
+      code: "",
+    };
+  }
+
+  const explanation = content.slice(0, openingFenceIndex).trim();
+  const afterOpeningFence = content.slice(openingFenceIndex + 3);
+  const openingLineMatch = afterOpeningFence.match(/^[^\r\n]*(?:\r?\n)?/);
+  const openingLine = openingLineMatch?.[0] ?? "";
+  const codeBlockBody = afterOpeningFence.slice(openingLine.length);
+  const closingFenceIndex = codeBlockBody.indexOf("```");
+  const code =
+    closingFenceIndex === -1
+      ? codeBlockBody
+      : codeBlockBody.slice(0, closingFenceIndex).trimEnd();
+
+  return {
+    explanation,
+    code,
+  };
+}
+
+function extractDeltaContent(payload: unknown) {
+  const streamDelta = payload as StreamDelta;
+  const content = streamDelta.choices?.[0]?.delta?.content;
+
+  return typeof content === "string" ? content : "";
+}
+
+function renderInlineMarkdown(text: string) {
+  const segments = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+
+  return segments.map((segment, index) => {
+    if (segment.startsWith("`") && segment.endsWith("`") && segment.length > 1) {
+      return (
+        <code
+          key={`${segment}-${index}`}
+          className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[0.9em] text-cyan-100"
+        >
+          {segment.slice(1, -1)}
+        </code>
+      );
+    }
+
+    if (
+      segment.startsWith("**") &&
+      segment.endsWith("**") &&
+      segment.length > 3
+    ) {
+      return (
+        <strong key={`${segment}-${index}`} className="font-semibold text-white">
+          {segment.slice(2, -2)}
+        </strong>
+      );
+    }
+
+    return segment;
+  });
+}
+
+function MarkdownPreview({ content }: { content: string }) {
+  const trimmedContent = content.trim();
+
+  if (!trimmedContent) {
+    return (
+      <p className="text-sm leading-7 text-slate-500">
+        The streamed explanation will appear here.
+      </p>
+    );
+  }
+
+  const lines = trimmedContent.split(/\r?\n/);
+  const elements: React.ReactNode[] = [];
+  let bulletItems: string[] = [];
+
+  const flushBulletItems = () => {
+    if (bulletItems.length === 0) {
+      return;
+    }
+
+    elements.push(
+      <ul
+        key={`list-${elements.length}`}
+        className="list-disc space-y-2 pl-5 text-sm leading-7 text-slate-300"
+      >
+        {bulletItems.map((item, index) => (
+          <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ul>
+    );
+    bulletItems = [];
+  };
+
+  lines.forEach((line) => {
+    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
+
+    if (bulletMatch) {
+      bulletItems.push(bulletMatch[1]);
+      return;
+    }
+
+    flushBulletItems();
+
+    if (headingMatch) {
+      elements.push(
+        <h3
+          key={`heading-${elements.length}`}
+          className="text-base font-semibold text-white"
+        >
+          {renderInlineMarkdown(headingMatch[2])}
+        </h3>
+      );
+      return;
+    }
+
+    if (line.trim().length === 0) {
+      elements.push(<div key={`space-${elements.length}`} className="h-2" />);
+      return;
+    }
+
+    elements.push(
+      <p key={`paragraph-${elements.length}`} className="text-sm leading-7">
+        {renderInlineMarkdown(line)}
+      </p>
+    );
+  });
+
+  flushBulletItems();
+
+  return <div className="space-y-3 text-slate-300">{elements}</div>;
+}
+
 export default function Home() {
   const [inputCode, setInputCode] = useState(starterCode);
   const [outputCode, setOutputCode] = useState(starterOutput);
-  const [explanation, setExplanation] = useState(
-    "- Replaced imperative looping with a declarative filter call.\n- Removed unnecessary boolean comparison.\n- Preserved the original behavior while making the intent easier to scan."
-  );
+  const [explanation, setExplanation] = useState(starterExplanation);
   const [refactorGoal, setRefactorGoal] = useState(refactorGoals[0]);
   const [language, setLanguage] = useState(languages[0].value);
   const [customContext, setCustomContext] = useState(
     "Use modern language features while keeping the public API unchanged."
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const selectedLanguageLabel = useMemo(
     () => languages.find((item) => item.value === language)?.label ?? "Code",
     [language]
   );
 
-  const handleRefactor = () => {
-    setIsLoading(true);
+  const handleRefactor = async () => {
+    if (!inputCode.trim()) {
+      setErrorMessage("Paste code before starting a refactor.");
+      return;
+    }
 
-    window.setTimeout(() => {
-      setOutputCode(inputCode.trim() || starterOutput);
-      setExplanation(
-        `- Goal: ${refactorGoal}.\n- Language target: ${selectedLanguageLabel}.\n- Context applied: ${customContext || "No additional context provided."}\n- AI execution is ready to be connected to the backend refactoring service.`
+    setIsLoading(true);
+    setErrorMessage("");
+    setOutputCode("");
+    setExplanation("Waiting for the model to start streaming...");
+
+    try {
+      const response = await fetch("/api/refactor", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code: inputCode,
+          language,
+          goal: refactorGoal,
+          customContext,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+
+        throw new Error(
+          errorBody?.error ?? "Unable to start the refactoring stream."
+        );
+      }
+
+      if (!response.body) {
+        throw new Error("The refactoring response did not include a stream.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let lineBuffer = "";
+      let accumulatedText = "";
+
+      const applyDelta = (delta: string) => {
+        accumulatedText += delta;
+        const parsed = splitRefactorResponse(accumulatedText);
+
+        setExplanation(parsed.explanation);
+        setOutputCode(parsed.code);
+      };
+
+      const processLine = (line: string) => {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine.startsWith("data:")) {
+          return;
+        }
+
+        const data = trimmedLine.slice(5).trim();
+
+        if (!data || data === "[DONE]") {
+          return;
+        }
+
+        try {
+          const payload = JSON.parse(data) as unknown;
+          const content = extractDeltaContent(payload);
+
+          if (content) {
+            applyDelta(content);
+          }
+        } catch {
+          throw new Error("Received an invalid streaming response chunk.");
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split(/\r?\n/);
+        lineBuffer = lines.pop() ?? "";
+        lines.forEach(processLine);
+      }
+
+      lineBuffer += decoder.decode();
+
+      if (lineBuffer.trim()) {
+        processLine(lineBuffer);
+      }
+
+      const parsed = splitRefactorResponse(accumulatedText);
+      setExplanation(parsed.explanation || "No explanation was returned.");
+      setOutputCode(parsed.code || accumulatedText);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while streaming the refactor."
       );
+    } finally {
       setIsLoading(false);
-    }, 450);
+    }
   };
 
   return (
@@ -103,7 +349,7 @@ export default function Home() {
                 </p>
               </div>
               <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
-                Draft
+                {isLoading ? "Streaming" : "Draft"}
               </span>
             </div>
 
@@ -164,13 +410,19 @@ export default function Home() {
                 />
               </label>
 
+              {errorMessage ? (
+                <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100">
+                  {errorMessage}
+                </div>
+              ) : null}
+
               <button
                 type="button"
                 onClick={handleRefactor}
                 disabled={isLoading}
                 className="w-full rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-bold text-slate-950 shadow-xl shadow-cyan-950/40 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isLoading ? "Refactoring..." : "Refactor Code"}
+                {isLoading ? "Streaming Refactor..." : "Refactor Code"}
               </button>
             </div>
           </aside>
@@ -211,11 +463,7 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="min-h-0 flex-1">
-                  <CodeEditor
-                    value={outputCode}
-                    language={language}
-                    readOnly
-                  />
+                  <CodeEditor value={outputCode} language={language} readOnly />
                 </div>
               </div>
 
@@ -226,10 +474,10 @@ export default function Home() {
                     Markdown-friendly architectural notes.
                   </p>
                 </div>
-                <div className="prose prose-invert max-w-none px-5 py-4 text-sm leading-7 text-slate-300">
-                  <pre className="whitespace-pre-wrap rounded-2xl border border-white/10 bg-slate-950/70 p-4 font-sans text-sm leading-7 text-slate-300">
-                    {explanation}
-                  </pre>
+                <div className="px-5 py-4">
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+                    <MarkdownPreview content={explanation} />
+                  </div>
                 </div>
               </div>
             </section>
