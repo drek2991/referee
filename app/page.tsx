@@ -13,18 +13,18 @@ const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
 });
 
 const refactorGoals = [
-  "Improve Readability",
-  "Reduce Complexity",
-  "Make Idiomatic",
-  "Optimize Performance",
+  { label: "Improve Readability", value: "Improve Readability", enabled: true },
+  { label: "Reduce Complexity", value: "Reduce Complexity", enabled: false },
+  { label: "Make Idiomatic", value: "Make Idiomatic", enabled: false },
+  { label: "Optimize Performance", value: "Optimize Performance", enabled: false },
 ];
 
 const languages = [
-  { label: "JavaScript", value: "javascript" },
-  { label: "TypeScript", value: "typescript" },
-  { label: "Python", value: "python" },
-  { label: "Rust", value: "rust" },
-  { label: "Go", value: "go" },
+  { label: "JavaScript", value: "javascript", enabled: true },
+  { label: "TypeScript", value: "typescript", enabled: false },
+  { label: "Python", value: "python", enabled: false },
+  { label: "Rust", value: "rust", enabled: false },
+  { label: "Go", value: "go", enabled: false },
 ];
 
 const starterCode = `function getActiveUsers(users) {
@@ -193,7 +193,7 @@ export default function Home() {
   const [inputCode, setInputCode] = useState(starterCode);
   const [outputCode, setOutputCode] = useState(starterOutput);
   const [explanation, setExplanation] = useState(starterExplanation);
-  const [refactorGoal, setRefactorGoal] = useState(refactorGoals[0]);
+  const [refactorGoal, setRefactorGoal] = useState(refactorGoals[0].value);
   const [language, setLanguage] = useState(languages[0].value);
   const [customContext, setCustomContext] = useState(
     "Use modern language features while keeping the public API unchanged."
@@ -207,6 +207,14 @@ export default function Home() {
   );
 
   const handleRefactor = async () => {
+    const selectedLanguage = languages.find((item) => item.value === language);
+    const selectedGoal = refactorGoals.find((item) => item.value === refactorGoal);
+
+    if (!selectedLanguage?.enabled || !selectedGoal?.enabled) {
+      setErrorMessage("Select an available language and refactoring goal.");
+      return;
+    }
+
     if (!inputCode.trim()) {
       setErrorMessage("Paste code before starting a refactor.");
       return;
@@ -364,11 +372,19 @@ export default function Home() {
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-300/10"
                 >
                   {refactorGoals.map((goal) => (
-                    <option key={goal} value={goal}>
-                      {goal}
+                    <option
+                      key={goal.value}
+                      value={goal.value}
+                      disabled={!goal.enabled}
+                    >
+                      {goal.label}
+                      {goal.enabled ? "" : " — Coming soon"}
                     </option>
                   ))}
                 </select>
+                <span className="mt-2 block text-xs leading-5 text-slate-500">
+                  More refactoring goals are coming soon.
+                </span>
               </label>
 
               <div>
@@ -383,14 +399,23 @@ export default function Home() {
                       <button
                         key={item.value}
                         type="button"
+                        disabled={!item.enabled}
                         onClick={() => setLanguage(item.value)}
+                        aria-label={`${item.label}${item.enabled ? "" : " — Coming soon"}`}
                         className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${
                           isSelected
                             ? "border-cyan-300/60 bg-cyan-300/15 text-cyan-100 shadow-lg shadow-cyan-950/40"
-                            : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
+                            : item.enabled
+                              ? "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
+                              : "cursor-not-allowed border-white/5 bg-white/[0.02] text-slate-600"
                         }`}
                       >
-                        {item.label}
+                        <span className="block">{item.label}</span>
+                        {!item.enabled ? (
+                          <span className="mt-0.5 block text-[10px] font-normal uppercase tracking-wide text-slate-600">
+                            Coming soon
+                          </span>
+                        ) : null}
                       </button>
                     );
                   })}
