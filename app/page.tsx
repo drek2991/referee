@@ -2,7 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
+import MarkdownPreview from "@/components/MarkdownPreview";
 import { languages, refactorGoals } from "@/lib/refactor-scope";
+import {
+  extractDeltaContent,
+  splitRefactorResponse,
+} from "@/lib/refactor-stream";
 
 const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
   ssr: false,
@@ -28,152 +33,6 @@ const starterOutput = `const getActiveUsers = (users) =>
 
 const starterExplanation =
   "- Replaced imperative looping with a declarative filter call.\n- Removed unnecessary boolean comparison.\n- Preserved the original behavior while making the intent easier to scan.";
-
-type StreamDelta = {
-  choices?: Array<{
-    delta?: {
-      content?: unknown;
-    };
-  }>;
-};
-
-function splitRefactorResponse(content: string) {
-  const openingFenceIndex = content.indexOf("```");
-
-  if (openingFenceIndex === -1) {
-    return {
-      explanation: content.trimStart(),
-      code: "",
-    };
-  }
-
-  const explanation = content.slice(0, openingFenceIndex).trim();
-  const afterOpeningFence = content.slice(openingFenceIndex + 3);
-  const openingLineMatch = afterOpeningFence.match(/^[^\r\n]*(?:\r?\n)?/);
-  const openingLine = openingLineMatch?.[0] ?? "";
-  const codeBlockBody = afterOpeningFence.slice(openingLine.length);
-  const closingFenceIndex = codeBlockBody.indexOf("```");
-  const code =
-    closingFenceIndex === -1
-      ? codeBlockBody
-      : codeBlockBody.slice(0, closingFenceIndex).trimEnd();
-
-  return {
-    explanation,
-    code,
-  };
-}
-
-function extractDeltaContent(payload: unknown) {
-  const streamDelta = payload as StreamDelta;
-  const content = streamDelta.choices?.[0]?.delta?.content;
-
-  return typeof content === "string" ? content : "";
-}
-
-function renderInlineMarkdown(text: string) {
-  const segments = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
-
-  return segments.map((segment, index) => {
-    if (segment.startsWith("`") && segment.endsWith("`") && segment.length > 1) {
-      return (
-        <code
-          key={`${segment}-${index}`}
-          className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[0.9em] text-cyan-100"
-        >
-          {segment.slice(1, -1)}
-        </code>
-      );
-    }
-
-    if (
-      segment.startsWith("**") &&
-      segment.endsWith("**") &&
-      segment.length > 3
-    ) {
-      return (
-        <strong key={`${segment}-${index}`} className="font-semibold text-white">
-          {segment.slice(2, -2)}
-        </strong>
-      );
-    }
-
-    return segment;
-  });
-}
-
-function MarkdownPreview({ content }: { content: string }) {
-  const trimmedContent = content.trim();
-
-  if (!trimmedContent) {
-    return (
-      <p className="text-sm leading-7 text-slate-500">
-        The streamed explanation will appear here.
-      </p>
-    );
-  }
-
-  const lines = trimmedContent.split(/\r?\n/);
-  const elements: React.ReactNode[] = [];
-  let bulletItems: string[] = [];
-
-  const flushBulletItems = () => {
-    if (bulletItems.length === 0) {
-      return;
-    }
-
-    elements.push(
-      <ul
-        key={`list-${elements.length}`}
-        className="list-disc space-y-2 pl-5 text-sm leading-7 text-slate-300"
-      >
-        {bulletItems.map((item, index) => (
-          <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
-        ))}
-      </ul>
-    );
-    bulletItems = [];
-  };
-
-  lines.forEach((line) => {
-    const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
-    const bulletMatch = line.match(/^[-*]\s+(.+)$/);
-
-    if (bulletMatch) {
-      bulletItems.push(bulletMatch[1]);
-      return;
-    }
-
-    flushBulletItems();
-
-    if (headingMatch) {
-      elements.push(
-        <h3
-          key={`heading-${elements.length}`}
-          className="text-base font-semibold text-white"
-        >
-          {renderInlineMarkdown(headingMatch[2])}
-        </h3>
-      );
-      return;
-    }
-
-    if (line.trim().length === 0) {
-      elements.push(<div key={`space-${elements.length}`} className="h-2" />);
-      return;
-    }
-
-    elements.push(
-      <p key={`paragraph-${elements.length}`} className="text-sm leading-7">
-        {renderInlineMarkdown(line)}
-      </p>
-    );
-  });
-
-  flushBulletItems();
-
-  return <div className="space-y-3 text-slate-300">{elements}</div>;
-}
 
 export default function Home() {
   const [inputCode, setInputCode] = useState(starterCode);
