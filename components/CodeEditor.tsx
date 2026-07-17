@@ -8,6 +8,7 @@ type CodeEditorProps = {
   onChange?: (value: string) => void;
   readOnly?: boolean;
   height?: string;
+  ariaLabel?: string;
 };
 
 export default function CodeEditor({
@@ -16,6 +17,7 @@ export default function CodeEditor({
   onChange,
   readOnly = false,
   height = "100%",
+  ariaLabel,
 }: CodeEditorProps) {
   return (
     <Editor
@@ -25,6 +27,7 @@ export default function CodeEditor({
       value={value}
       onChange={(nextValue) => onChange?.(nextValue ?? "")}
       options={{
+        ariaLabel: ariaLabel ?? (readOnly ? "Refactored code editor" : "Input code editor"),
         automaticLayout: true,
         cursorBlinking: readOnly ? "solid" : "blink",
         fontFamily:
