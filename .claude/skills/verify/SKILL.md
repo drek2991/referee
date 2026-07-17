@@ -31,10 +31,12 @@ Recommended checks for the Monaco workspace:
 
 1. Confirm the page displays `AI refactoring cockpit`.
 2. Wait until at least two `.monaco-editor` elements render.
-3. Type into the first Monaco editor and confirm Monaco's first model value changes.
-4. Click `Refactor Code` and confirm the second Monaco model updates from the input state.
-5. Try typing into the second Monaco editor and confirm the second model does not change.
-6. Probe responsive overflow at desktop and mobile widths by comparing `document.documentElement.scrollWidth` to `clientWidth`.
+3. Confirm JavaScript and TypeScript are enabled while Python, Rust, and Go remain disabled.
+4. Switch between JavaScript and TypeScript and confirm both Monaco model language IDs follow the selection.
+5. Type into the first Monaco editor and confirm Monaco's first model value changes.
+6. Submit both JavaScript and TypeScript refactor requests and confirm the second Monaco model updates from the input state.
+7. Try typing into the second Monaco editor and confirm the second model does not change.
+8. Probe responsive overflow at desktop and mobile widths by comparing `document.documentElement.scrollWidth` to `clientWidth`.
 
 ## Headless Chromium gotchas
 

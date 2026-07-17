@@ -6,7 +6,7 @@ Referee is an AI-powered code refactoring workspace that turns a focused natural
 
 ## Overview
 
-Referee turns a focused refactoring request into an interactive review experience. Developers edit JavaScript in Monaco, describe what should be improved, and watch a behavior-preserving plan and refactored output arrive progressively from a server-side AI integration.
+Referee turns a focused refactoring request into an interactive review experience. Developers edit JavaScript or TypeScript in Monaco, describe what should be improved, and watch a behavior-preserving plan and refactored output arrive progressively from a server-side AI integration.
 
 ## MVP Features
 
@@ -23,14 +23,14 @@ Referee turns a focused refactoring request into an interactive review experienc
 
 ### Available now
 
-- **Language:** JavaScript
+- **Languages:** JavaScript and TypeScript
 - **Requests:** Freeform, behavior-preserving improvements to structure, readability, maintainability, organization, or safe efficiency
 
 ### Coming soon
 
 The interface previews planned language options, but they are disabled and cannot be submitted:
 
-- **Languages:** TypeScript, Python, Rust, Go
+- **Languages:** Python, Rust, Go
 
 Bug fixing, feature generation, and intentional behavior changes remain outside Referee's current scope. The assistant redirects those requests toward safe refactoring.
 
@@ -109,19 +109,20 @@ Local `.env*` files are ignored by Git, while `.env.example` documents the requi
 ## Streaming Flow
 
 1. The client sends `code`, `language`, and a non-empty `refactorRequest` to `POST /api/refactor`.
-2. The route validates the JavaScript-only, behavior-preserving request and calls OpenRouter with streaming enabled.
+2. The route validates the selected supported language and behavior-preserving request, then calls OpenRouter with streaming enabled.
 3. OpenRouter-compatible SSE chunks are proxied to the browser as they arrive.
 4. The client extracts incremental `choices[0].delta.content` values.
-5. Accumulated text is split at the first fenced code block:
+5. The response uses a `javascript` or `typescript` fence that matches the selected language.
+6. Accumulated text is split at the first fenced code block:
    - content before the fence becomes the markdown explanation;
    - content inside the fence becomes the read-only Monaco output.
-6. Both panels update progressively without waiting for the complete response.
+7. Both panels update progressively without waiting for the complete response.
 
 ## MVP Limitations
 
 Referee intentionally keeps its first release focused:
 
-- JavaScript is the only enabled language.
+- JavaScript and TypeScript are the only enabled languages.
 - Refactoring is single-file, text-based, and behavior-preserving.
 - Bug fixes, new features, and intentional behavior changes are redirected rather than implemented.
 - AI output can vary and should be reviewed before use.
@@ -130,7 +131,7 @@ Referee intentionally keeps its first release focused:
 
 ## Future Improvements
 
-- Enable the previewed languages after validation
+- Enable the remaining previewed languages after validation
 - Add stronger response-contract validation and recovery
 - Support multi-file refactoring context
 - Add optional refactoring history and project persistence

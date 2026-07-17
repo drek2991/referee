@@ -238,7 +238,7 @@ export default function Home() {
                       <button
                         key={item.value}
                         type="button"
-                        disabled={!item.enabled}
+                        disabled={!item.enabled || isLoading}
                         onClick={() => setLanguage(item.value)}
                         aria-label={`${item.label}${item.enabled ? "" : " — Coming soon"}`}
                         className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${

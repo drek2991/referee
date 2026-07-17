@@ -1,9 +1,22 @@
-export const SUPPORTED_LANGUAGE = "javascript";
+export const SUPPORTED_LANGUAGES = ["javascript", "typescript"] as const;
 
-export const languages = [
-  { label: "JavaScript", value: SUPPORTED_LANGUAGE, enabled: true },
-  { label: "TypeScript", value: "typescript", enabled: false },
-  { label: "Python", value: "python", enabled: false },
-  { label: "Rust", value: "rust", enabled: false },
-  { label: "Go", value: "go", enabled: false },
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+
+export function isSupportedLanguage(
+  language: string
+): language is SupportedLanguage {
+  return SUPPORTED_LANGUAGES.some((item) => item === language);
+}
+
+const languageOptions = [
+  { label: "JavaScript", value: "javascript" },
+  { label: "TypeScript", value: "typescript" },
+  { label: "Python", value: "python" },
+  { label: "Rust", value: "rust" },
+  { label: "Go", value: "go" },
 ] as const;
+
+export const languages = languageOptions.map((language) => ({
+  ...language,
+  enabled: isSupportedLanguage(language.value),
+}));
