@@ -1,3 +1,8 @@
+import {
+  SUPPORTED_GOAL,
+  SUPPORTED_LANGUAGE,
+} from "@/lib/refactor-scope";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -49,6 +54,17 @@ function parseRefactorRequestBody(body: unknown): RefactorRequestBody | Response
     return jsonError("The goal field must be a string when provided.", 400);
   }
 
+  const normalizedLanguage = language?.trim().toLowerCase();
+  const normalizedGoal = goal?.trim();
+
+  if (normalizedLanguage !== SUPPORTED_LANGUAGE) {
+    return jsonError("Only JavaScript is currently supported.", 400);
+  }
+
+  if (normalizedGoal !== SUPPORTED_GOAL) {
+    return jsonError("Only Improve Readability is currently supported.", 400);
+  }
+
   if (customContext !== undefined && typeof customContext !== "string") {
     return jsonError(
       "The customContext field must be a string when provided.",
@@ -58,8 +74,8 @@ function parseRefactorRequestBody(body: unknown): RefactorRequestBody | Response
 
   return {
     code,
-    language: language?.trim() || "text",
-    goal: goal?.trim() || "Improve Readability",
+    language: SUPPORTED_LANGUAGE,
+    goal: SUPPORTED_GOAL,
     customContext: customContext?.trim() || "No additional context provided.",
   };
 }
