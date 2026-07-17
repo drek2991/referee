@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import MarkdownPreview from "@/components/MarkdownPreview";
-import { languages, refactorGoals } from "@/lib/refactor-scope";
+import { languages } from "@/lib/refactor-scope";
 import {
   extractDeltaContent,
   splitRefactorResponse,
@@ -32,16 +32,15 @@ const starterOutput = `const getActiveUsers = (users) =>
   users.filter((user) => user.active);`;
 
 const starterExplanation =
-  "- Replaced imperative looping with a declarative filter call.\n- Removed unnecessary boolean comparison.\n- Preserved the original behavior while making the intent easier to scan.";
+  "## Refactor Plan\n- Replace imperative looping with a declarative filter call.\n- Remove the unnecessary boolean comparison.\n\n## Behavior Notes\n- Preserve the original filtering behavior and public function signature.";
 
 export default function Home() {
   const [inputCode, setInputCode] = useState(starterCode);
   const [outputCode, setOutputCode] = useState(starterOutput);
   const [explanation, setExplanation] = useState(starterExplanation);
-  const [refactorGoal, setRefactorGoal] = useState<string>(refactorGoals[0].value);
   const [language, setLanguage] = useState<string>(languages[0].value);
-  const [customContext, setCustomContext] = useState(
-    "Use modern language features while keeping the public API unchanged."
+  const [refactorRequest, setRefactorRequest] = useState(
+    "Make this easier to read without changing behavior."
   );
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -53,15 +52,19 @@ export default function Home() {
 
   const handleRefactor = async () => {
     const selectedLanguage = languages.find((item) => item.value === language);
-    const selectedGoal = refactorGoals.find((item) => item.value === refactorGoal);
 
-    if (!selectedLanguage?.enabled || !selectedGoal?.enabled) {
-      setErrorMessage("Select an available language and refactoring goal.");
+    if (!selectedLanguage?.enabled) {
+      setErrorMessage("Select an available language.");
       return;
     }
 
     if (!inputCode.trim()) {
       setErrorMessage("Paste code before starting a refactor.");
+      return;
+    }
+
+    if (!refactorRequest.trim()) {
+      setErrorMessage("Describe what Referee should improve.");
       return;
     }
 
@@ -79,8 +82,7 @@ export default function Home() {
         body: JSON.stringify({
           code: inputCode,
           language,
-          goal: refactorGoal,
-          customContext,
+          refactorRequest: refactorRequest.trim(),
         }),
       });
 
@@ -183,8 +185,8 @@ export default function Home() {
               AI refactoring cockpit
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 sm:text-base">
-              Paste code, select an intent, and review the refactored output with
-              a structured architectural explanation.
+              Paste code, describe a focused refactor, and review the result with
+              a behavior-preserving plan.
             </p>
           </div>
           <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200">
@@ -209,26 +211,18 @@ export default function Home() {
             <div className="mt-6 space-y-5">
               <label className="block">
                 <span className="text-sm font-medium text-slate-200">
-                  Refactoring goal
+                  What should Referee improve?
                 </span>
-                <select
-                  value={refactorGoal}
-                  onChange={(event) => setRefactorGoal(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-300/10"
-                >
-                  {refactorGoals.map((goal) => (
-                    <option
-                      key={goal.value}
-                      value={goal.value}
-                      disabled={!goal.enabled}
-                    >
-                      {goal.label}
-                      {goal.enabled ? "" : " — Coming soon"}
-                    </option>
-                  ))}
-                </select>
+                <textarea
+                  value={refactorRequest}
+                  onChange={(event) => setRefactorRequest(event.target.value)}
+                  placeholder="Make this easier to read without changing behavior."
+                  rows={6}
+                  className="mt-2 w-full resize-none rounded-2xl border border-cyan-300/20 bg-slate-950 px-4 py-3 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-300/10"
+                />
                 <span className="mt-2 block text-xs leading-5 text-slate-500">
-                  More refactoring goals are coming soon.
+                  Ask for clearer structure, less duplication, or safer efficiency.
+                  Referee keeps external behavior unchanged.
                 </span>
               </label>
 
@@ -266,19 +260,6 @@ export default function Home() {
                   })}
                 </div>
               </div>
-
-              <label className="block">
-                <span className="text-sm font-medium text-slate-200">
-                  Custom context or instructions
-                </span>
-                <textarea
-                  value={customContext}
-                  onChange={(event) => setCustomContext(event.target.value)}
-                  placeholder="Use async/await instead of promises"
-                  rows={7}
-                  className="mt-2 w-full resize-none rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-sm leading-6 text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-cyan-300/70 focus:ring-4 focus:ring-cyan-300/10"
-                />
-              </label>
 
               {errorMessage ? (
                 <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm leading-6 text-red-100">
@@ -339,9 +320,9 @@ export default function Home() {
 
               <div className="min-h-[220px] overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl shadow-black/30 backdrop-blur">
                 <div className="border-b border-white/10 px-5 py-4">
-                  <h2 className="font-semibold text-white">Explanation</h2>
+                  <h2 className="font-semibold text-white">Plan &amp; Notes</h2>
                   <p className="text-sm text-slate-400">
-                    Markdown-friendly architectural notes.
+                    The streamed response starts with a focused Refactor Plan.
                   </p>
                 </div>
                 <div className="px-5 py-4">
