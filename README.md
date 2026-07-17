@@ -1,18 +1,18 @@
 # Referee
 
-Referee is an AI-powered code refactoring workspace that streams an architectural explanation and a cleaner implementation into a dual-editor interface.
+Referee is an AI-powered code refactoring workspace that turns a focused natural-language request into a streamed refactor plan and a cleaner implementation in a dual-editor interface.
 
 **Live demo:** [referee-sigma.vercel.app](https://referee-sigma.vercel.app/)
 
 ## Overview
 
-Referee turns a focused refactoring request into an interactive review experience. Developers edit source code in Monaco, choose an available directive, and watch the explanation and refactored output arrive progressively from a server-side AI integration.
+Referee turns a focused refactoring request into an interactive review experience. Developers edit JavaScript in Monaco, describe what should be improved, and watch a behavior-preserving plan and refactored output arrive progressively from a server-side AI integration.
 
 ## MVP Features
 
 - Responsive, dark-mode development workspace
 - Editable Monaco input editor and read-only Monaco output editor
-- Refactoring directive and custom-instruction controls
+- Primary natural-language refactor request control
 - Secure server-side OpenRouter integration
 - Real-time SSE response streaming
 - Client-side separation of markdown explanation and fenced code output
@@ -24,22 +24,23 @@ Referee turns a focused refactoring request into an interactive review experienc
 ### Available now
 
 - **Language:** JavaScript
-- **Goal:** Improve Readability
+- **Requests:** Freeform, behavior-preserving improvements to structure, readability, maintainability, organization, or safe efficiency
 
 ### Coming soon
 
-The interface previews planned options, but they are disabled and cannot be submitted:
+The interface previews planned language options, but they are disabled and cannot be submitted:
 
 - **Languages:** TypeScript, Python, Rust, Go
-- **Goals:** Reduce Complexity, Make Idiomatic, Optimize Performance
+
+Bug fixing, feature generation, and intentional behavior changes remain outside Referee's current scope. The assistant redirects those requests toward safe refactoring.
 
 ## Architecture
 
 ```text
 Browser workspace
   ├─ Editable Monaco input
-  ├─ Refactoring controls
-  └─ Read-only output + markdown explanation
+  ├─ Freeform refactor request
+  └─ Read-only output + markdown refactor plan
             │
             │ POST /api/refactor
             ▼
@@ -107,8 +108,8 @@ Local `.env*` files are ignored by Git, while `.env.example` documents the requi
 
 ## Streaming Flow
 
-1. The client sends `code`, `language`, `goal`, and `customContext` to `POST /api/refactor`.
-2. The route validates the request and calls OpenRouter with streaming enabled.
+1. The client sends `code`, `language`, and a non-empty `refactorRequest` to `POST /api/refactor`.
+2. The route validates the JavaScript-only, behavior-preserving request and calls OpenRouter with streaming enabled.
 3. OpenRouter-compatible SSE chunks are proxied to the browser as they arrive.
 4. The client extracts incremental `choices[0].delta.content` values.
 5. Accumulated text is split at the first fenced code block:
@@ -120,15 +121,16 @@ Local `.env*` files are ignored by Git, while `.env.example` documents the requi
 
 Referee intentionally keeps its first release focused:
 
-- JavaScript and Improve Readability are the only enabled options.
-- Refactoring is single-file and text-based.
+- JavaScript is the only enabled language.
+- Refactoring is single-file, text-based, and behavior-preserving.
+- Bug fixes, new features, and intentional behavior changes are redirected rather than implemented.
 - AI output can vary and should be reviewed before use.
 - Free OpenRouter models may be rate-limited or temporarily unavailable.
 - There is no authentication, database, saved history, analytics, model picker, or automated code execution.
 
 ## Future Improvements
 
-- Enable the previewed languages and refactoring goals after validation
+- Enable the previewed languages after validation
 - Add stronger response-contract validation and recovery
 - Support multi-file refactoring context
 - Add optional refactoring history and project persistence
