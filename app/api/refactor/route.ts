@@ -1,4 +1,7 @@
-import { SUPPORTED_LANGUAGE } from "@/lib/refactor-scope";
+import {
+  isSupportedLanguage,
+  type SupportedLanguage,
+} from "@/lib/refactor-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,7 +10,15 @@ const OPENROUTER_CHAT_COMPLETIONS_URL =
   "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "cohere/north-mini-code:free";
 
-const SYSTEM_PROMPT = `You are Referee, a focused JavaScript refactoring assistant.
+const languageLabels: Record<SupportedLanguage, string> = {
+  javascript: "JavaScript",
+  typescript: "TypeScript",
+};
+
+function buildSystemPrompt(language: SupportedLanguage) {
+  const languageLabel = languageLabels[language];
+
+  return `You are Referee, a focused ${languageLabel} refactoring assistant.
 
 Refactoring means improving structure, readability, maintainability, organization, or safe efficiency without intentionally changing external behavior.
 
@@ -17,21 +28,23 @@ Follow these scope rules:
 - Limit your plan and code changes to refactoring actions.
 - Preserve observable behavior, public APIs, inputs, outputs, thrown errors, side effects and their order, and synchronous or asynchronous behavior.
 - Do not fix bugs, add features, or implement requested behavior changes.
-- If any part of the request requires bug fixing, a new feature, or a behavior change, do not implement that request. State that behavior-changing work is outside Referee's current scope and return the submitted source unchanged in the code block.
-- If no safe in-scope change is appropriate, keep the submitted source unchanged in the code block and explain why in the plan.
+- If any part of the request requires bug fixing, a new feature, or a behavior change, do not implement that request. State that behavior-changing work is outside Referee's current scope and return the submitted source unchanged in the required ${language} code block.
+- If no safe in-scope change is appropriate, keep the submitted source unchanged in the required ${language} code block and explain why in the plan.
+- A scope redirect must still complete every step of the response contract, including the code block. Never end the response after the explanation.
 
 You must respond using this exact response contract:
 1. Markdown explanation first, beginning with a level-two heading exactly named "Refactor Plan".
 2. Follow that heading with concise Markdown bullet points containing only focused refactoring actions.
 3. Include a level-two "Behavior Notes" section when behavior preservation, a scope redirect, or a relevant risk should be called out.
-4. Then exactly one fenced JavaScript code block containing the complete refactored code.
-5. Use the opening fence \`\`\`javascript.
+4. Then exactly one fenced ${languageLabel} code block containing the complete refactored code.
+5. Use the opening fence \`\`\`${language}.
 6. No multiple alternatives and no prose inside the code block.
 7. No text after the closing triple backticks.`;
+}
 
 type RefactorRequestBody = {
   code: string;
-  language: string;
+  language: SupportedLanguage;
   refactorRequest: string;
 };
 
@@ -60,8 +73,11 @@ function parseRefactorRequestBody(body: unknown): RefactorRequestBody | Response
 
   const normalizedLanguage = language?.trim().toLowerCase();
 
-  if (normalizedLanguage !== SUPPORTED_LANGUAGE) {
-    return jsonError("Only JavaScript is currently supported.", 400);
+  if (!normalizedLanguage || !isSupportedLanguage(normalizedLanguage)) {
+    return jsonError(
+      "Only JavaScript and TypeScript are currently supported.",
+      400
+    );
   }
 
   if (typeof refactorRequest !== "string" || refactorRequest.trim().length === 0) {
@@ -70,7 +86,7 @@ function parseRefactorRequestBody(body: unknown): RefactorRequestBody | Response
 
   return {
     code,
-    language: SUPPORTED_LANGUAGE,
+    language: normalizedLanguage,
     refactorRequest: refactorRequest.trim(),
   };
 }
@@ -149,7 +165,7 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "system",
-          content: SYSTEM_PROMPT,
+          content: buildSystemPrompt(parsedBody.language),
         },
         {
           role: "user",
