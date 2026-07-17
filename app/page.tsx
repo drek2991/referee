@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
+import { languages, refactorGoals } from "@/lib/refactor-scope";
 
 const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
   ssr: false,
@@ -11,21 +12,6 @@ const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
     </div>
   ),
 });
-
-const refactorGoals = [
-  { label: "Improve Readability", value: "Improve Readability", enabled: true },
-  { label: "Reduce Complexity", value: "Reduce Complexity", enabled: false },
-  { label: "Make Idiomatic", value: "Make Idiomatic", enabled: false },
-  { label: "Optimize Performance", value: "Optimize Performance", enabled: false },
-];
-
-const languages = [
-  { label: "JavaScript", value: "javascript", enabled: true },
-  { label: "TypeScript", value: "typescript", enabled: false },
-  { label: "Python", value: "python", enabled: false },
-  { label: "Rust", value: "rust", enabled: false },
-  { label: "Go", value: "go", enabled: false },
-];
 
 const starterCode = `function getActiveUsers(users) {
   var result = [];
@@ -193,8 +179,8 @@ export default function Home() {
   const [inputCode, setInputCode] = useState(starterCode);
   const [outputCode, setOutputCode] = useState(starterOutput);
   const [explanation, setExplanation] = useState(starterExplanation);
-  const [refactorGoal, setRefactorGoal] = useState(refactorGoals[0].value);
-  const [language, setLanguage] = useState(languages[0].value);
+  const [refactorGoal, setRefactorGoal] = useState<string>(refactorGoals[0].value);
+  const [language, setLanguage] = useState<string>(languages[0].value);
   const [customContext, setCustomContext] = useState(
     "Use modern language features while keeping the public API unchanged."
   );
