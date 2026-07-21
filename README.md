@@ -6,7 +6,7 @@ Referee is an AI-powered code refactoring workspace that turns a focused natural
 
 ## Overview
 
-Referee turns a focused refactoring request into an interactive review experience. Developers edit JavaScript or TypeScript in Monaco, describe what should be improved, and watch a behavior-preserving plan and refactored output arrive progressively from a server-side AI integration.
+Referee turns a focused refactoring request into an interactive review experience. Developers edit JavaScript, TypeScript, or Python in Monaco, describe what should be improved, and watch a behavior-preserving plan and refactored output arrive progressively from a server-side AI integration.
 
 ## MVP Features
 
@@ -23,14 +23,14 @@ Referee turns a focused refactoring request into an interactive review experienc
 
 ### Available now
 
-- **Languages:** JavaScript and TypeScript
+- **Languages:** JavaScript, TypeScript, and Python
 - **Requests:** Freeform, behavior-preserving improvements to structure, readability, maintainability, organization, or safe efficiency
 
 ### Coming soon
 
 The interface previews planned language options, but they are disabled and cannot be submitted:
 
-- **Languages:** Python, Rust, Go
+- **Languages:** Rust and Go
 
 Bug fixing, feature generation, and intentional behavior changes remain outside Referee's current scope. The assistant redirects those requests toward safe refactoring.
 
@@ -112,7 +112,7 @@ Local `.env*` files are ignored by Git, while `.env.example` documents the requi
 2. The route validates the selected supported language and behavior-preserving request, then calls OpenRouter with streaming enabled.
 3. OpenRouter-compatible SSE chunks are proxied to the browser as they arrive.
 4. The client extracts incremental `choices[0].delta.content` values.
-5. The response uses a `javascript` or `typescript` fence that matches the selected language.
+5. The response uses a `javascript`, `typescript`, or `python` fence that matches the selected language.
 6. Accumulated text is split at the first fenced code block:
    - content before the fence becomes the markdown explanation;
    - content inside the fence becomes the read-only Monaco output.
@@ -122,7 +122,7 @@ Local `.env*` files are ignored by Git, while `.env.example` documents the requi
 
 Referee intentionally keeps its first release focused:
 
-- JavaScript and TypeScript are the only enabled languages.
+- JavaScript, TypeScript, and Python are the only enabled languages.
 - Refactoring is single-file, text-based, and behavior-preserving.
 - Bug fixes, new features, and intentional behavior changes are redirected rather than implemented.
 - AI output can vary and should be reviewed before use.

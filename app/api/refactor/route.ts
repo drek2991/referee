@@ -13,6 +13,7 @@ const DEFAULT_MODEL = "cohere/north-mini-code:free";
 const languageLabels: Record<SupportedLanguage, string> = {
   javascript: "JavaScript",
   typescript: "TypeScript",
+  python: "Python",
 };
 
 function buildSystemPrompt(language: SupportedLanguage) {
@@ -75,7 +76,7 @@ function parseRefactorRequestBody(body: unknown): RefactorRequestBody | Response
 
   if (!normalizedLanguage || !isSupportedLanguage(normalizedLanguage)) {
     return jsonError(
-      "Only JavaScript and TypeScript are currently supported.",
+      "Only JavaScript, TypeScript, and Python are currently supported.",
       400
     );
   }
