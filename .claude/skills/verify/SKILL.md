@@ -29,14 +29,17 @@ Drive the running app in Chromium at `http://localhost:3000`.
 
 Recommended checks for the Monaco workspace:
 
-1. Confirm the page displays `AI refactoring cockpit`.
+1. Confirm the page displays `Refactor with intent. Preserve behavior.`.
 2. Wait until at least two `.monaco-editor` elements render.
 3. Confirm JavaScript and TypeScript are enabled while Python, Rust, and Go remain disabled.
 4. Switch between JavaScript and TypeScript and confirm both Monaco model language IDs follow the selection.
 5. Type into the first Monaco editor and confirm Monaco's first model value changes.
 6. Submit both JavaScript and TypeScript refactor requests and confirm the second Monaco model updates from the input state.
-7. Try typing into the second Monaco editor and confirm the second model does not change.
-8. Probe responsive overflow at desktop and mobile widths by comparing `document.documentElement.scrollWidth` to `clientWidth`.
+7. Confirm the indeterminate activity bar, streaming phase, elapsed time, and pre-code waiting state appear at the expected stream stages.
+8. Drive a stalled stream past the timeout and confirm it aborts, preserves partial content, shows focused retry guidance, and permits another request.
+9. Return mismatched supported, upcoming, and unknown fence tags and confirm friendly hints appear without changing the selected language.
+10. Try typing into the second Monaco editor and confirm the second model does not change.
+11. Probe responsive overflow at desktop and mobile widths by comparing `document.documentElement.scrollWidth` to `clientWidth`.
 
 ## Headless Chromium gotchas
 
