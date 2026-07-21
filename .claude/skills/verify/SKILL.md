@@ -38,8 +38,10 @@ Recommended checks for the Monaco workspace:
 7. Confirm the indeterminate activity bar, streaming phase, elapsed time, and pre-code waiting state appear at the expected stream stages.
 8. Drive a stalled stream past the timeout and confirm it aborts, preserves partial content, shows focused retry guidance, and permits another request.
 9. Return mismatched supported, upcoming, and unknown fence tags and confirm friendly hints appear without changing the selected language.
-10. Try typing into the second Monaco editor and confirm the second model does not change.
-11. Probe responsive overflow at desktop and mobile widths by comparing `document.documentElement.scrollWidth` to `clientWidth`.
+10. Complete responses with no fence, multiple blocks, trailing prose, and a missing tag; confirm final warnings appear only after completion and only first-block code enters Monaco.
+11. Confirm an explanation-only response leaves the output editor empty.
+12. Try typing into the second Monaco editor and confirm the second model does not change.
+13. Probe responsive overflow at desktop and mobile widths by comparing `document.documentElement.scrollWidth` to `clientWidth`.
 
 ## Headless Chromium gotchas
 
