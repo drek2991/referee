@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MarkdownPreview from "@/components/MarkdownPreview";
+import { getLanguageMismatchHint } from "@/lib/language-hint";
 import { languages } from "@/lib/refactor-scope";
 import {
   extractDeltaContent,
@@ -17,6 +18,8 @@ const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
     </div>
   ),
 });
+
+const REQUEST_TIMEOUT_MS = 60_000;
 
 const starterCode = `function getActiveUsers(users) {
   var result = [];
@@ -39,6 +42,12 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [hasReceivedContent, setHasReceivedContent] = useState(false);
+  const [hasCodeStarted, setHasCodeStarted] = useState(false);
+  const [languageHint, setLanguageHint] = useState("");
+  const activeControllerRef = useRef<AbortController | null>(null);
+  const requestStartedAtRef = useRef(0);
 
   const selectedLanguageLabel = useMemo(
     () => languages.find((item) => item.value === language)?.label ?? "Code",
@@ -53,6 +62,30 @@ export default function Home() {
       : outputCode
         ? "Review ready"
         : "Ready";
+  const streamingPhase = !hasReceivedContent
+    ? "Preparing refactor"
+    : !hasCodeStarted
+      ? "Building refactor plan"
+      : "Generating refactored code";
+
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const updateElapsedTime = () => {
+      setElapsedSeconds(
+        Math.floor((Date.now() - requestStartedAtRef.current) / 1000)
+      );
+    };
+    const intervalId = window.setInterval(updateElapsedTime, 1_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isLoading]);
+
+  useEffect(() => {
+    return () => activeControllerRef.current?.abort();
+  }, []);
 
   const handleRefactor = async () => {
     const selectedLanguage = languages.find((item) => item.value === language);
@@ -72,11 +105,24 @@ export default function Home() {
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort("request-timeout"),
+      REQUEST_TIMEOUT_MS
+    );
+
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = controller;
+    requestStartedAtRef.current = Date.now();
     setIsLoading(true);
     setHasSubmitted(true);
     setErrorMessage("");
     setOutputCode("");
-    setExplanation("Waiting for the model to start streaming...");
+    setExplanation("");
+    setElapsedSeconds(0);
+    setHasReceivedContent(false);
+    setHasCodeStarted(false);
+    setLanguageHint("");
 
     try {
       const response = await fetch("/api/refactor", {
@@ -89,6 +135,7 @@ export default function Home() {
           language,
           refactorRequest: refactorRequest.trim(),
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -111,11 +158,20 @@ export default function Home() {
       let accumulatedText = "";
 
       const applyDelta = (delta: string) => {
+        if (activeControllerRef.current !== controller) {
+          return;
+        }
+
         accumulatedText += delta;
         const parsed = splitRefactorResponse(accumulatedText);
 
+        setHasReceivedContent(true);
+        setHasCodeStarted(Boolean(parsed.fenceLanguage || parsed.code));
         setExplanation(parsed.explanation);
         setOutputCode(parsed.code);
+        setLanguageHint(
+          getLanguageMismatchHint(language, parsed.fenceLanguage)
+        );
       };
 
       const processLine = (line: string) => {
@@ -163,16 +219,30 @@ export default function Home() {
       }
 
       const parsed = splitRefactorResponse(accumulatedText);
-      setExplanation(parsed.explanation || "No explanation was returned.");
-      setOutputCode(parsed.code || accumulatedText);
+      if (activeControllerRef.current === controller) {
+        setExplanation(parsed.explanation || "No explanation was returned.");
+        setOutputCode(parsed.code || accumulatedText);
+      }
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong while streaming the refactor."
-      );
+      if (activeControllerRef.current === controller) {
+        const timedOut =
+          controller.signal.aborted &&
+          controller.signal.reason === "request-timeout";
+
+        setErrorMessage(
+          timedOut
+            ? "This refactor took too long. Try a smaller snippet or a more focused request."
+            : error instanceof Error
+              ? error.message
+              : "Something went wrong while streaming the refactor."
+        );
+      }
     } finally {
-      setIsLoading(false);
+      window.clearTimeout(timeoutId);
+      if (activeControllerRef.current === controller) {
+        activeControllerRef.current = null;
+        setIsLoading(false);
+      }
     }
   };
 
@@ -225,6 +295,26 @@ export default function Home() {
               {workspaceStatus}
             </div>
           </div>
+
+          {isLoading ? (
+            <div className="mt-4 rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] px-3.5 py-3">
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-semibold text-cyan-100">
+                  {streamingPhase}
+                </p>
+                <p aria-live="off" className="text-xs text-slate-500">
+                  Streaming for {elapsedSeconds}s
+                </p>
+              </div>
+              <div
+                role="progressbar"
+                aria-label={streamingPhase}
+                className="mt-2 h-1 overflow-hidden rounded-full bg-slate-800"
+              >
+                <div className="h-full w-1/3 animate-[streaming-progress_1.4s_ease-in-out_infinite] rounded-full bg-cyan-300 motion-reduce:w-full motion-reduce:animate-none" />
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-6 max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
@@ -368,7 +458,10 @@ export default function Home() {
                 >
                   {isLoading ? (
                     <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-900/30 border-t-slate-900" />
+                      <span
+                        aria-hidden="true"
+                        className="h-4 w-4 animate-spin rounded-full border-2 border-slate-900/30 border-t-slate-900"
+                      />
                       Streaming refactor
                     </>
                   ) : (
@@ -458,6 +551,15 @@ export default function Home() {
                     Read only
                   </span>
                 </div>
+                {languageHint ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="border-b border-amber-300/15 bg-amber-300/[0.06] px-4 py-2.5 text-xs leading-5 text-amber-100"
+                  >
+                    {languageHint}
+                  </div>
+                ) : null}
                 <div className="relative min-h-0 flex-1">
                   <CodeEditor
                     value={outputCode}
@@ -472,14 +574,18 @@ export default function Home() {
                           {isLoading ? "…" : "{}"}
                         </div>
                         <p className="mt-3 text-sm font-medium text-slate-300">
-                          {isLoading
-                            ? "Waiting for generated code"
-                            : "Your refactored code will appear here"}
+                          {isLoading && hasReceivedContent
+                            ? "Planning complete enough to continue"
+                            : isLoading
+                              ? "Preparing your refactor"
+                              : "Your refactored code will appear here"}
                         </p>
                         <p className="mt-1.5 text-xs leading-5 text-slate-600">
-                          {isLoading
-                            ? "The output editor will update when the stream reaches the code block."
-                            : "Submit a focused request to generate a behavior-preserving implementation."}
+                          {isLoading && hasReceivedContent
+                            ? "Waiting for refactored code. It appears after the plan reaches the code block."
+                            : isLoading
+                              ? "The plan will stream first, followed by the generated code."
+                              : "Submit a focused request to generate a behavior-preserving implementation."}
                         </p>
                       </div>
                     </div>

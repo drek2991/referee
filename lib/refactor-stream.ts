@@ -13,6 +13,7 @@ export function splitRefactorResponse(content: string) {
     return {
       explanation: content.trimStart(),
       code: "",
+      fenceLanguage: "",
     };
   }
 
@@ -20,6 +21,9 @@ export function splitRefactorResponse(content: string) {
   const afterOpeningFence = content.slice(openingFenceIndex + 3);
   const openingLineMatch = afterOpeningFence.match(/^[^\r\n]*(?:\r?\n)?/);
   const openingLine = openingLineMatch?.[0] ?? "";
+  const fenceLanguage = /\r?\n$/.test(openingLine)
+    ? openingLine.trim().toLowerCase().split(/\s+/)[0]
+    : "";
   const codeBlockBody = afterOpeningFence.slice(openingLine.length);
   const closingFenceIndex = codeBlockBody.indexOf("```");
   const code =
@@ -30,6 +34,7 @@ export function splitRefactorResponse(content: string) {
   return {
     explanation,
     code,
+    fenceLanguage,
   };
 }
 
