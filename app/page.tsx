@@ -5,9 +5,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MarkdownPreview from "@/components/MarkdownPreview";
 import { getLanguageMismatchHint } from "@/lib/language-hint";
 import { languages } from "@/lib/refactor-scope";
+import { getResponseFormatWarnings } from "@/lib/response-validation";
 import {
   extractDeltaContent,
   splitRefactorResponse,
+  validateRefactorResponse,
 } from "@/lib/refactor-stream";
 
 const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
@@ -46,6 +48,7 @@ export default function Home() {
   const [hasReceivedContent, setHasReceivedContent] = useState(false);
   const [hasCodeStarted, setHasCodeStarted] = useState(false);
   const [languageHint, setLanguageHint] = useState("");
+  const [responseWarnings, setResponseWarnings] = useState<string[]>([]);
   const activeControllerRef = useRef<AbortController | null>(null);
   const requestStartedAtRef = useRef(0);
 
@@ -55,7 +58,7 @@ export default function Home() {
   );
   const availableLanguages = languages.filter((item) => item.enabled);
   const upcomingLanguages = languages.filter((item) => !item.enabled);
-  const workspaceStatus = errorMessage
+  const workspaceStatus = errorMessage || responseWarnings.length > 0
     ? "Needs attention"
     : isLoading
       ? "Streaming"
@@ -123,6 +126,7 @@ export default function Home() {
     setHasReceivedContent(false);
     setHasCodeStarted(false);
     setLanguageHint("");
+    setResponseWarnings([]);
 
     try {
       const response = await fetch("/api/refactor", {
@@ -219,9 +223,11 @@ export default function Home() {
       }
 
       const parsed = splitRefactorResponse(accumulatedText);
+      const validation = validateRefactorResponse(accumulatedText);
       if (activeControllerRef.current === controller) {
         setExplanation(parsed.explanation || "No explanation was returned.");
-        setOutputCode(parsed.code || accumulatedText);
+        setOutputCode(validation.hasCodeBlock ? parsed.code : "");
+        setResponseWarnings(getResponseFormatWarnings(validation));
       }
     } catch (error) {
       if (activeControllerRef.current === controller) {
@@ -271,7 +277,7 @@ export default function Home() {
               role="status"
               aria-live="polite"
               className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                errorMessage
+                errorMessage || responseWarnings.length > 0
                   ? "border-red-400/25 bg-red-400/10 text-red-200"
                   : isLoading
                     ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100"
@@ -283,7 +289,7 @@ export default function Home() {
               <span
                 aria-hidden="true"
                 className={`mr-2 inline-block h-1.5 w-1.5 rounded-full ${
-                  errorMessage
+                  errorMessage || responseWarnings.length > 0
                     ? "bg-red-300"
                     : isLoading
                       ? "animate-pulse bg-cyan-200"
@@ -551,13 +557,19 @@ export default function Home() {
                     Read only
                   </span>
                 </div>
-                {languageHint ? (
+                {languageHint || responseWarnings.length > 0 ? (
                   <div
                     role="status"
                     aria-live="polite"
-                    className="border-b border-amber-300/15 bg-amber-300/[0.06] px-4 py-2.5 text-xs leading-5 text-amber-100"
+                    className="border-b border-amber-300/15 bg-amber-300/[0.06] px-4 py-3 text-xs leading-5 text-amber-100"
                   >
-                    {languageHint}
+                    <p className="font-semibold">Review this response</p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-4">
+                      {responseWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                      {languageHint ? <li>{languageHint}</li> : null}
+                    </ul>
                   </div>
                 ) : null}
                 <div className="relative min-h-0 flex-1">
